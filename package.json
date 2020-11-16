@@ -1,0 +1,30 @@
+{
+    "name": "fluid-cockroachdb",
+    "version": "1.1.1",
+    "description": "A library making postgres database queries.",
+    "main": "index.js",
+    "scripts": {
+        "test": "node node_modules/nyc/bin/nyc.js node tests/all-tests.js"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/klown/fluid-cockroachdb.git"
+    },
+    "author": "Joseph Scheuhammer <clown@alum.mit.edu>",
+    "license": "BSD-3-Clause",
+    "homepage": "https://github.com/klown/fluid-cockroachdb#readme",
+    "dependencies": {
+        "infusion": "3.0.0-dev.20200326T173810Z.24ddb2718",
+        "sequelize": "^6.3.5",
+        "sequelize-cockroachdb": "^1.1.0"
+    },
+    "devDependencies": {
+        "eslint": "7.5.0",
+        "eslint-config-fluid": "1.4.0",
+        "eslint-plugin-markdown": "1.0.2",
+        "fluid-grunt-lint-all": "1.0.8",
+        "grunt": "1.2.1",
+        "node-jqunit": "1.1.8",
+        "nyc": "15.1.0"
+    }
+}
