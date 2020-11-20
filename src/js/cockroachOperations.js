@@ -40,7 +40,7 @@ fluid.defaults("fluid.cockroachdb.request", {
  * Initiallize connection to the cockroachdb, using Sequelize.
  *
  * @param {Object} that - Contains the options for the connection and a member
- *                        for hold a reference to the connection.
+ *                        to hold a reference to the connection.
  * @param {String} that.options.databaseName - Name of the database.
  * @param {String} that.options.user - Name of the user with admin access.
  * @param {String} that.options.password - User's password.
@@ -59,29 +59,61 @@ fluid.cockroachdb.initConnection = function (that) {
     );
 };
 
-fluid.defaults("fluid.cockroachdb.initialze", {
+fluid.defaults("fluid.cockroachdb.operations", {
     gradeNames: ["fluid.component"],
     members: {
         tables: {}
     },
     invokers: {
         createTables: {
-            funcName: "fluid.test.cockroachdb.createTables",
+            funcName: "fluid.cockroachdb.operations.createTables",
             args: ["{that}", "{arguments}.0"]
         },
         createOneTable: {
-            funcName: "fluid.test.cockroachdb.createOneTable",
+            funcName: "fluid.cockroachdb.operations.createOneTable",
             args: ["{that}", "{that}.request", "{arguments}.0"]
                                                // model definition
         },
-        loadTables: {
-            funcName: "fluid.test.cockroachdb.loadTables",
-            args: ["{that}"]
-        },
         loadOneTable: {
-            funcName: "fluid.test.cockroachdb.loadOneTable",
-            args: ["{that}", "{that}.request", "{arguments}.0"]
-                                                // table name
+            funcName: "fluid.cockroachdb.operations.loadOneTable",
+            args: ["{that}", "{arguments}.0", "{arguments}.1"]
+                             // table name    // table data
+        },
+        loadTables: {
+            funcName: "fluid.cockroachdb.operations.loadTables",
+            args: ["{that}", "{arguments}.0"]
+                             // table data
+        },
+        deleteTableData: {
+            funcName: "fluid.cockroachdb.operations.deleteTableData",
+            args: ["{that}", "{arguments}.0", "{arguments}.1"]
+                             // table name    // hard delete?
+        },
+        selectRows: {
+            funcName: "fluid.cockroachdb.operations.selectRows",
+            args: ["{that}", "{arguments}.0", "{arguments}.1"]
+                             // table name    // row contraints
+        }, 
+        retrieveValue: {
+            funcName: "fluid.cockroachdb.operations.retrieveValue",
+            args: ["{that}", "{arguments}.0", "{arguments}.1"]
+                             // table name    // constraints
+        },
+        insertRecord: {      
+            funcName: "fluid.cockroachdb.operations.insertRecord",
+            args: ["{that}", "{arguments}.0", "{arguments}.1"]
+                             // table name    // record
+        },
+        updateFields: {
+            funcName: "fluid.cockroachdb.operations.updateFields",
+            args: ["{that}", "{arguments}.0", "{arguments}.1"]
+                             // table name    // changes
+       
+        },
+        deleteRecord: {
+            funcName: "fluid.cockroachdb.operations.deleteRecord",
+            args: ["{that}", "{arguments}.0", "{arguments}.1"]
+                             // table name    // identifier (primary key)
         }
     },
     components: {
@@ -94,29 +126,16 @@ fluid.defaults("fluid.cockroachdb.initialze", {
 /**
  * Loop to define and create the database tables.
  *
- * @param {Object} that - The table initializer
+ * @param {Object} that - Operations component instance.
  * @param {Object} that.request - An instance of fluid.cockroachdb.request
- * @param {Object} that.tables - Set to references the created tables.
- * @param {Object} tableModelDefs - A list of table defintions.  TODO: document this.
+ * @param {Object} that.tables - List of references the created tables.
+ * @param {Object} tableDefs - A list of table defintions.  TODO: document this.
  * @return {Promise} Final Promise of the sequence that created the tables.
  */
-fluid.cockroachdb.createTables = function (that, tableModelDefs) {
-    var tableDefs = fluid.require(tableModelDefs);
-    var start = new Date();
+fluid.cockroachdb.operations.createTables = function (that, tableDefs) {
     var creationSequence = [];
     fluid.each(tableDefs, function (aTableDef) {
-        var aPromise = that.createOneTable(aTableDef);
-        creationSequence.push(aPromise);
-        aPromise.then(
-            function (createdTable) {
-                that.tables[createdTable.name] = createdTable;
-                fluid.log("Created table '", createdTable.name, "'");
-                fluid.log("XXXX ", (new Date() - start) / 60);
-            },
-            function (error) {
-                fluid.log(fluid.logLevel.FAIL, "Failed to create table", error);
-            }
-        );
+        creationSequence.push(that.createOneTable(aTableDef));
     });
     return fluid.promise.sequence(creationSequence);
 };
@@ -124,96 +143,203 @@ fluid.cockroachdb.createTables = function (that, tableModelDefs) {
 /**
  * Define structure of a database table, and request it be created.
  *
- * @param {Object} that - The table initializer
- * @param {Object} request - An instance of fluid.test.cockroachdb.request
+ * @param {Object} that - Operations component instance.
+ * @param {Object} that.tables - The resulting table is added to this list. 
+ * @param {Object} request - An instance of fluid.cockroachdb.operations.request
  * @param {Object} tableDef - The table definition.
- * @param {Object} tableDef.modelName - Name to use for the table.
  * @param {Object} tableDef.options - Table columne (varies).
- * @return {Promise} Promise resulting from the request to create the table in
- *                   the database.
+ * @return {Promise} Promise whose value is the created table.  A resolve
+ *                   handler adds the table to that.tables.  A reject handler
+ *                   logs a message.
  */
-fluid.cockroachdb.createOneTable = function (that, request, tableDef) {
+fluid.cockroachdb.operations.createOneTable = function (that, request, tableDef) {
     var theTable = tableDef(request.sequelize);
 
     // Force the destruction (drop) of any existing tablev before (re)creating
     // it.
-    return theTable.model.sync({force: true});
+    var createPromise = theTable.model.sync({force: true});
+    createPromise.then(
+        function (createdTable) {
+            that.tables[createdTable.name] = createdTable;
+        },
+        function (error) {
+            fluid.log("Failed to create table '", theTable.name, "' ", error);        
+        }
+    );
+    return createPromise;
 };
 
 /*
  * Load data sets into the tables that this initializer knows about.
  *
- * @param {Object} that - The table initializer.
+ * @param {Object} that - Operations component instance.
  * @param {Object} that.tables - The known tables.
- * @return {Promise} Promise resulting from the requests to load the tables with
- *                   the data sets.
+ * @param {Object} tableData - List of name/value pairs for the tables.
+ * @return {Promise} Final Promise of the sequence that loaded the tables.
  */
-fluid.cockroachdb.loadTables = function (that) {
-    var tableNames = fluid.keys(that.tableInfo.databases);
+fluid.cockroachdb.operations.loadTables = function (that, tableData) {
+    var tableNames = fluid.keys(tableData);
     var loadSequence = [];
-    var start = new Date();
     fluid.each(tableNames, function (aTableName) {
-        var aPromise = that.loadOneTable(aTableName);
-        aPromise.then(
-            function () {
-                fluid.log("Loaded table '", aTableName, "'");
-                fluid.log("XXXX  ", (new Date() - start) / 60);
-            },
-            function (error) {
-                fluid.log(fluid.logLevel.FAIL,
-                    "Failed to load table '", aTableName, "'",
-                    error.stack
-                );
-            }
-        );
-        loadSequence.push(aPromise);
+        loadSequence.push(that.loadOneTable(aTableName, tableData[aTableName]));
     });
     return fluid.promise.sequence(loadSequence);
 };
 
-
 /*
  * Load a data set into a table.
  *
- * @param {Object} that - The table initializer
- * @param {Object} tableDef - The table definition.
- * @param {Object} tableDef.modelName - Name to use for the table.
- * @param {Object} tableDef.options - Table columne (varies).
- * @return {Promise} Promise resulting from the request to create the table in
- *                   the database.
+ * @param {Object} that - Operations component instance.
+ * @param {Object} that.tables - The known tables.
+ * @param {Object} tableName - Name of the table to load.
+ * @param {Object} records - The table data -- array of objects containing
+ *                           name/value pairs that match the column/values of
+ *                           the table.
+ * @param {Object} that.table[tableName] - The table to load.
+ * @return {Promise} Promise whose value is loaded table.  Resolve and reject
+ *                   handlers log the success/failure.
  */
-fluid.cockroachdb.loadOneTable = function (that, request, tableName) {
+fluid.cockroachdb.operations.loadOneTable = function (that, tableName, records) {
     var model = that.tables[tableName];
-    if (model && tableName !== "nonbulk") { // TODO: handle non bulk loading (ignore nonbulk dataset for now)
-        var dataSet = fluid.require(that.tableInfo.databases[tableName].data);
-        return model.bulkCreate(dataSet.docs);
+    if (model) {
+        var loadPromise = model.bulkCreate(records);
+        loadPromise.then(
+            function (results) {
+                fluid.log("Loaded ", results.length, " records into table '", tableName, "'");
+            },
+            function (error) {
+                fluid.log("Failed to load table '", tableName, "'", error);
+            }
+        );
+        return loadPromise;
     } else {
-        return fluid.promise().resolve("No table defined for '", tableName, "' dataset");   // TODO: error (reject)?
+        return fluid.promise().resolve("No table defined for '" + tableName + "' dataset");   // TODO: error (reject)?
     }
 };
 
-// ============= TESTING =============
 /*
-var cockroachInit = fluid.test.cockroachdb.initialze();
-var createThenLoad = [];
+ * Flush or empty the contents of the named table -- delete all rows.
+ *
+ * @param {Object} that - Operations component instance.
+ * @param {Object} that.tables - The known tables.
+ * @param {Object} tableName - The table whose contents are to be deleted.
+ * @param {Boolean} hardDelete - (Optional) Flag for soft vs. hard deletion.
+ * @return {Promise} Promise whose value is the number of rows deleted.
+ */
+fluid.cockroachdb.operations.deleteTableData = function (that, tableName, hardDelete) {
+    var theTable = that.tables[tableName];
+    // Empty 'where' option means: no row filtering (= all rows).
+    if (hardDelete) {
+        return theTable.destroy({force: hardDelete, where: {}});
+    } else {
+        return theTable.destroy({where: {}});
+    }
+};
 
-var finalCreatePromise = cockroachInit.createTables();
-finalCreatePromise.then(
-    function (result) {
-        fluid.log("Created all tables: ", JSON.stringify(result, null, 2));
-    },
-    function (error) {
-        fluid.log(fluid.logLevel.FAIL, "Failed to create all tables: ", error);
+/*
+ * Retrieve the given row from the given table.
+ * SELECT * FROM <tableName> WHERE <column>=<value>;
+ *
+ * @param {Object} that - Operations component instance.
+ * @param {Object} that.tables - The known tables.
+ * @param {Object} tableName - The table whose contents are to be deleted.
+ * @param {Object} rowInfo - Object containing a columnName/value pair.
+ * @return {Promise} Promise whose value is an array of instances (can be empty).
+ */
+fluid.cockroachdb.operations.selectRows = function (that, tableName, rowInfo) {
+    var model = that.tables[tableName];
+    if (model) {
+        return model.findAll({where: rowInfo});
+    } else {
+        return fluid.promise().resolve([]);
     }
-);
-createThenLoad.push(finalCreatePromise);
-createThenLoad.push(cockroachInit.loadTables);
-fluid.promise.sequence(createThenLoad).then(
-    function (loadResult) {
-        fluid.log("Loaded all tables: ", JSON.stringify(loadResult, null, 2));
-    },
-    function (loadError) {
-        fluid.log(fluid.logLevel.FAIL, "Failed to create all tables: ", loadError);
+    // SELECT * FROM <tableName> WHERE <column>=<value>;
+};
+
+/*
+ * Retrieve the value at a given row/column in the given table.
+ * SELECT <valueSpec.attributes> FROM <tableName> WHERE <valueSpec.where> 
+ *
+ * @param {Object} that - Operations component instance.
+ * @param {Object} that.tables - The known tables.
+ * @param {Object} tableName - The table whose contents are to be deleted.
+ * @param {Object} valueSpec - Specification of what to retrieve:
+ * @param {Array} valueSpec.attributes - Array of column names; can be empty.
+ * @param {Object} valueSpec.where - Restrictions on row; can be empty.
+ * @return {Promise} Promise whose value is an array of instances (can be empty).
+ */
+fluid.cockroachdb.operations.retrieveValue = function (that, tableName, valueSpec) {
+    var model = that.tables[tableName];
+    if (model) {
+        return model.findAll(valueSpec);
+    } else {
+        return fluid.promise().resolve([]);
     }
-);
-*/
+    // SELECT <valueSpec.attributes> FROM <tableName> WHERE <valueSpec.where> 
+};
+
+/*
+ * Insert the given record into the given table.  Note that the fields of the
+ * record must match the columns of the table.
+ *
+ * @param {Object} that - Operations component instance.
+ * @param {Object} that.tables - The known tables.
+ * @param {Object} tableName - The table whose contents are to be deleted.
+ * @param {Object} record - Hash of name/value pairs.
+ * @return {Promise} Promise whose value is an array of the record added and
+ *                   whether it was added.
+ */
+fluid.cockroachdb.operations.insertRecord = function (that, tableName, record) {
+    return that.loadOneTable(tableName, [record]);
+};
+
+/*
+ * Delete the given identified record into the given table.  Examples of the
+ * 'primaryKey' parameter:
+ * - { "id": "F553B211-5BCD-41EA-9911-50646AE19D74"}
+ * - { "name": "default"}
+ * 
+ * @param {Object} that - Operations component instance.
+ * @param {Object} that.tables - The known tables.
+ * @param {Object} tableName - The table from which the record is deleted.
+ * @param {Object} primaryKey - Identifier for the record to delete:
+ * @param {Object} primaryKey.keyName - Primary key name.
+ * @param {Object} primaryKey.value - Value of the primary key.
+ * @return {Promise} Promise whose value is ???
+ */
+fluid.cockroachdb.operations.deleteRecord = function (that, tableName, primaryKey) {
+    var model = that.tables[tableName];
+    if (model) {
+        return model.destroy({ where: primaryKey });
+    } else {
+        return fluid.promise().resolve([]);
+    }
+};
+
+/*
+ * Update the data in the given field(s) of the given table with the given
+ * identifier and other constraints.
+ *
+ * @param {Object} that - Operations component instance.
+ * @param {Object} that.tables - The known tables.
+ * @param {Object} tableName - The table whose contents are to be deleted.
+ * @param {Object} fieldData - Data to be inserted, and constraints:
+ * @param {Object} fieldData.attributes - Hash of name/value pairs, to be
+ *                                        inserted.
+ * @param {Object} fieldData.where - Constraints on the insertion.  It must
+ *                                   contain an identifier (primary key).
+ * @return {Promise} Promise whose value is an array of the record added and
+ *                   whether it was added.
+ */
+fluid.cockroachdb.operations.updateFields = function (that, tableName, fieldData) {
+    var model = that.tables[tableName];
+    if (model) {
+        if (!fieldData.where) {
+            return fluid.promise().reject("Missing primary key");
+        } else {
+            return model.update(fieldData.attributes, { where: fieldData.where });
+        }
+    } else {
+        return fluid.promise.resolve([]);
+    }
+};

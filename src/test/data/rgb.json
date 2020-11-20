@@ -1,0 +1,33 @@
+[
+    {
+        "id": "strawberry",
+        "color": "red",
+        "colourMap": {
+            "name": "red",
+            "rgbHex": "#ff0000"
+        }
+    },
+    {
+        "id": "mango",
+        "color": "green",
+        "colourMap": {
+            "name": "green",
+            "HSL": [120, 100, 0]
+        }
+    },
+    {
+        "id": "blueberry",
+        "color": "blue"
+    },
+    {
+        "id": "chartreuse",
+        "color": "green",
+        "colourMap": {
+            "name": "chartreuse",
+            "rgbHex": "#7fff00",
+            "rgb": [127, 255, 0],
+            "HSL": [90.1, 100, 50],
+            "CYMK": [50 ,0 ,100 ,0 ]
+        }
+    }
+]

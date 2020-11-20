@@ -1,0 +1,12 @@
+# Coverage directories used by nyc
+coverage
+reports
+
+# Grunt intermediate storage (http://gruntjs.com/creating-plugins#storing-task-files)
+.grunt
+
+# Node dependencies
+node_modules
+
+# npm package lock file.
+package-lock.json

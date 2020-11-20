@@ -1,0 +1,53 @@
+[
+    {
+        "id": "org.cockroachdb.user:admin",
+        "rev": "4-b363c37b06fab359471bec4c12c8c36e",
+        "password_scheme": "pbkdf2",
+        "iterations": 10,
+        "username": "admin",
+        "type": "user",
+        "name": "admin",
+        "email": "admin@localhost",
+        "roles": [
+            "admin"
+        ],
+        "signupTimestamp": "2014-01-03T17:59:23.634Z",
+        "failedLoginAttempts": 0,
+        "derived_key": "9ff4bc1c1846181d303971b08b65122a45174d04",
+        "salt": "2653c80aabd3889c3dfd6e198d3dca93",
+        "emailVerificationTimestamp": "2014-01-03T18:00:30.787Z",
+        "verified": true
+    },
+    {
+        "id": "org.cockroachdb.user:nonadmin",
+        "rev": "4-b363c37b06fab359471bec4c12c8c36e",
+        "password_scheme": "pbkdf2",
+        "iterations": 10,
+        "username": "nonadmin",
+        "type": "user",
+        "name": "nonadmin",
+        "email": "nonadmin@localhost",
+        "roles": [
+            "nonadmin"
+        ],
+        "signupTimestamp": "2014-01-03T17:59:23.634Z",
+        "failedLoginAttempts": 0,
+        "derived_key": "9ff4bc1c1846181d303971b08b65122a45174d04",
+        "salt": "2653c80aabd3889c3dfd6e198d3dca93",
+        "emailVerificationTimestamp": "2014-01-03T18:00:30.787Z",
+        "verified": true
+    },
+    {
+        "id": "org.cockroachdb.user:unverified",
+        "password_scheme": "pbkdf2",
+        "iterations": 10,
+        "name": "unverified",
+        "email": "unverified@localhost",
+        "roles": [],
+        "data": {},
+        "type": "user",
+        "derived_key": "80a49cde29016df5daf977937027a574c8ba5f89",
+        "salt": "04fe38b871928a6e057b8fe2acd64180",
+        "verification_code": "51cd39a0-a87d-11e4-ae25-295d11aea1d5"
+    }
+]
