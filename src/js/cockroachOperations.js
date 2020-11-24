@@ -227,12 +227,16 @@ fluid.cockroachdb.operations.loadOneTable = function (that, tableName, records) 
  * @return {Promise} Promise whose value is the number of rows deleted.
  */
 fluid.cockroachdb.operations.deleteTableData = function (that, tableName, hardDelete) {
-    var theTable = that.tables[tableName];
-    // Empty 'where' option means: no row filtering (= all rows).
-    if (hardDelete) {
-        return theTable.destroy({force: hardDelete, where: {}});
+    var model = that.tables[tableName];
+    if (model) {
+        // Empty 'where' option means: no row filtering (= all rows).
+        if (hardDelete) {
+            return model.destroy({force: hardDelete, where: {}});
+        } else {
+            return model.destroy({where: {}});
+        }
     } else {
-        return theTable.destroy({where: {}});
+        return fluid.promise().resolve(0);
     }
 };
 
@@ -258,24 +262,24 @@ fluid.cockroachdb.operations.selectRows = function (that, tableName, rowInfo) {
 
 /*
  * Retrieve the value at a given row/column in the given table.
- * SELECT <valueSpec.attributes> FROM <tableName> WHERE <valueSpec.where> 
+ * SELECT <constraints.attributes> FROM <tableName> WHERE <valueSpec.where> 
  *
  * @param {Object} that - Operations component instance.
  * @param {Object} that.tables - The known tables.
  * @param {Object} tableName - The table whose contents are to be deleted.
  * @param {Object} valueSpec - Specification of what to retrieve:
- * @param {Array} valueSpec.attributes - Array of column names; can be empty.
- * @param {Object} valueSpec.where - Restrictions on row; can be empty.
+ * @param {Array} constraints.attributes - Array of column names; can be empty.
+ * @param {Object} constraints.where - Restrictions on row; can be empty.
  * @return {Promise} Promise whose value is an array of instances (can be empty).
  */
-fluid.cockroachdb.operations.retrieveValue = function (that, tableName, valueSpec) {
+fluid.cockroachdb.operations.retrieveValue = function (that, tableName, constraints) {
     var model = that.tables[tableName];
     if (model) {
-        return model.findAll(valueSpec);
+        return model.findAll(constraints);
     } else {
         return fluid.promise().resolve([]);
     }
-    // SELECT <valueSpec.attributes> FROM <tableName> WHERE <valueSpec.where> 
+    // SELECT <constraints.attributes> FROM <tableName> WHERE <constraints.where> 
 };
 
 /*
@@ -328,8 +332,8 @@ fluid.cockroachdb.operations.deleteRecord = function (that, tableName, primaryKe
  *                                        inserted.
  * @param {Object} fieldData.where - Constraints on the insertion.  It must
  *                                   contain an identifier (primary key).
- * @return {Promise} Promise whose value is an array of the record added and
- *                   whether it was added.
+ * @return {Promise} Promise whose value is an array containing the number of
+ *                   affected rows, and the actual affected rows.
  */
 fluid.cockroachdb.operations.updateFields = function (that, tableName, fieldData) {
     var model = that.tables[tableName];
