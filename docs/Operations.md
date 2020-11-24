@@ -15,7 +15,7 @@ from the database, the return value is a json structure.
 
 Nonetheless, raw SQL/Postgres requests are available through the full Sequelize
 API.  Users of this library have access to Sequelize via an instance of the
-[`fluid.cockroachdb.request` component](#fluid.cockroachdb.request).
+[`fluid.cockroachdb.request` component](#fluidcockroachdbrequest).
 
 Note that most of the functions return a `Promise`.  Sequelize uses the
 [Bluebird](http://bluebirdjs.com/docs/why-promises.html) library, which
@@ -72,7 +72,7 @@ component.  Its structure and API are documented here:
 
 | Component         | Type                            | Description |
 | ----------------- | ----------                      | ----------- |
-| `request`         | `fluid.cockroachdb.request`     | An instance of the request component [documented above](#fluid.cockroachdb.request) |
+| `request`         | `fluid.cockroachdb.request`     | An instance of the request component [documented above](#fluidcockroachdbrequest) |
 
 
 #### Operations API

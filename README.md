@@ -18,7 +18,7 @@ it with the following configuration:
 | -------------------------- | ------------- | ----------- |
 | `COCKROACH_MAIN_CONTAINER` | `cockroachdb` | The main Docker container running the CockroachDB interface |
 | `COCKROACHDB_LISTEN_PORT`  | `26257`       | Postgres TCP port for accessing the database |
-| `COCKROACHDB_ADMIN_PORT`   | `8080`        | TCP port for the web-based admin viewer<br>h`ttp://localhost:8080` |
+| `COCKROACHDB_ADMIN_PORT`   | `8080`        | TCP port for the web-based admin viewer<br>`http://localhost:8080` |
 | `COCKROACH_USER`           | `maxroach`    | User that has admin privileges for all tables in the database |
 
 ## Start Up
@@ -62,4 +62,4 @@ information, move the folder elsewhere before calling the shut down script.
 ## Database API
 
 Documentation on database operations can be found in the
-[`docs`]("./docs/Operations.md") folder.
+[`docs`](docs/Operations.md) folder.
