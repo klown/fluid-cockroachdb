@@ -18,14 +18,13 @@ API.  Users of this library have access to Sequelize via an instance of the
 [`fluid.cockroachdb.request` component](#fluidcockroachdbrequest).
 
 Note that most of the functions return a `Promise`.  Sequelize uses the
-[Bluebird](http://bluebirdjs.com/docs/why-promises.html) library, which
-interested parties can read about.  This library of operations chooses to use
-only the `then(), resolve(), and reject()` functions, and, in so doing, can
-make used woith [Infusion's promise API](https://docs.fluidproject.org/infusion/development/promisesapi).
+[Bluebird](http://bluebirdjs.com/docs/why-promises.html) library, however,
+this library of operations uses only the `then(), resolve(), and reject()`
+functions, allowing the use of [Infusion's promise API](https://docs.fluidproject.org/infusion/development/promisesapi).
 
 ## APIs
 
-The library consists of two fluid componenets, one that establishes a
+The library consists of two fluid components, one that establishes a
 connection to the data base (host, port, etc.) and another that executes the
 operations themselves.  These are documented in what follows.
 
@@ -53,9 +52,10 @@ providing a (Postgres) wire to make requests of it.
 
 When initialized, the request component establishes the connection with the
 database as per its options.  It is then available for database queries.
-However, the request instance is a member of the `fluid.cockroachdb.operations`
-component described immediately following. Clients will use the operations
-component for most of the interactions with the database and its tables.
+However, an instance of the request component is a member of the
+`fluid.cockroachdb.operations` component described immediately following. 
+Clients will use the operations component for most of the interactions with the
+database.
 
 ### `fluid.cockroachdb.operations`
 
@@ -92,24 +92,24 @@ definitions
 
 Loop to create the tables by calling `createOneTable()` for each table model in
 the input parameter.  Any existing tables are deleted and recreated.  The
-returned promise is the result of running a `fluid.promise.sequence`.  The
-created tables are empty.
+returned promise is the result of running a `fluid.promise.sequence`, an array
+of table models.  The tables created in the database are empty.
 
 ##### `loadOneTable(tableName, records)`
 - `tableName String` The name of the table to load with the given records
 - `records Array` An array of JSON objects containing the data to store in the
 given table.
-- Returns: `{Promise}` whose value is an array of loaded instances.
+- Returns: `{Promise}` whose value is an array of the altered rows.
 
 Bulk load the given records into the given table.  The records' JSON field
 names must match the column names of the table and the values of those fields
 are the data to store in the column.  It is not necessary to have a field for
-each column -- missing fields/columns are set to null values in the table.
+each column as missing fields/columns are set to null values in the table.
 
 ##### `loadTables(tableData)`
 - `tableData Object` A Hash of table names and the records to load.
-- Returns: `{Promise}` whose value is an array of tables and their loaded
-records.
+- Returns: `{Promise}` whose value is an array of tables and, for each, an array
+of the altered rows.
 
 For each table named in `tableData`, buik load the associated array of records
 into that table using `loadOneTable()`.  The returned promise is the result of
@@ -117,8 +117,8 @@ running a `fluid.promise.sequence`.
 
 ##### `deleteTableData(tableName, hardDelete)`
 - `tableName String` The name of the table whose data is to be deleted.
-- `hardDelete Boollean` Flag indicating whether to execute a hard vs. soft
-deletion.  A soft deletion leaves the date in a recoverable state.  A hard
+- `hardDelete Boolean` Flag indicating whether to execute a hard vs. soft
+deletion.  A soft deletion leaves the data in a recoverable state.  A hard
 deletion is irrevocable.
 - Returns: `{Promise}` whose value is the number of rows deleted.
 
@@ -157,7 +157,7 @@ example is:
 ```
 
 This executes
-`SELECT id, password_scheme, username FROM <tableName> WHERE iterations=10`.
+`SELECT id, password_scheme, username FROM <tableName> WHERE iterations=10;`
 
 An example of the return value is, assuming there are only two users in the
 table that have logged into the system exactly 10 times:
@@ -194,7 +194,7 @@ are the data to store.  It is not necessary to have a field for each column
 - `tableName String` The name of the table whose data is to be deleted.
 - `primaryKey String` A name/value pair given the primary key of the record to
 delete.
-- Returns: Promise whose value is the number of rows deleted.  It should be 1.
+- Returns: `Promise` whose value is the number of rows deleted. It should be 1.
 
 The `primaryKey` object give the name of the column that is a primary key, and
 the row value to determine which row to delete.  For example: 
@@ -206,7 +206,7 @@ the row value to determine which row to delete.  For example:
 ##### `updateFields(tableName, fieldData)`
 - `tableName String` The name of the table whose data is to be retrieved.
 - `fieldData Object` A Hash containing an `attributes` object and a `where`
-`where` object.  The `where` object must contain the primary key, at least.
+ object.  The `where` object must contain the primary key, at least.
 - Returns: `{Promise}` whose value is an array containing the number of
 affected rows, and the actual affected rows.
 
@@ -219,7 +219,7 @@ primary key.  For example to update a user's email address:
 {
     attributes: {
         "email": "carla@localhost"
-        "verified": false,
+        "verified": true,
     },
     where: { id: "7D35672C-4E92-4662-8083-6432C179F9EE"}
 }

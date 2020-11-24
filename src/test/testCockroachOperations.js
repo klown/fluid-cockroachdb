@@ -114,7 +114,7 @@ fluid.defaults("fluid.tests.cockroachdb.operations.testCaseHolder", {
                 args: ["{cockRoachTestOps}"]
             }, 
               // In the following, the first argument to the 'resolveArgs' or
-              // 'rejectArgs' is a Sequelize Promise result
+              // 'rejectArgs' is a Promise value
               {
                 task: "{cockRoachTestOps}.createOneTable",
                 args: ["{cockRoachTestOps}.tableInfo.tableDefs.rgbTableModel"],
@@ -135,16 +135,26 @@ fluid.defaults("fluid.tests.cockroachdb.operations.testCaseHolder", {
                 args: ["rgb", true],    // hard delete
                 resolve: "fluid.tests.cockroachdb.operations.testDeleteTableData",
                 resolveArgs: ["{arguments}.0", "{cockRoachTestOps}", "rgb"]
+                              // number of rows deleted
             }, {
                 task: "{cockRoachTestOps}.loadTables",
                 args: ["{cockRoachTestOps}.tableInfo.tableData"],
                 resolve: "fluid.tests.cockroachdb.operations.testLoadTables",
                 resolveArgs: ["{arguments}.0", "{cockRoachTestOps}.tableInfo.tableData"]
             }, {
+                // Select from existing table
                 task: "{cockRoachTestOps}.selectRows",
                 args: ["rgb", { color: "green" }],
                 resolve: "fluid.tests.cockroachdb.operations.testSelectRows",
                 resolveArgs: ["{arguments}.0", "{cockRoachTestOps}.tableInfo.tableData.rgb"]
+                              // array of rows
+            }, {
+                // Select from non-existant table
+                task: "{cockRoachTestOps}.selectRows",
+                args: ["noSuchTable", { color: "green" }],
+                resolve: "fluid.tests.cockroachdb.operations.testSelectRows",
+                resolveArgs: ["{arguments}.0", []]
+                              // array of rows, should be zero length
             }, {
                 task: "{cockRoachTestOps}.retrieveValue",
                 args: [
@@ -163,24 +173,34 @@ fluid.defaults("fluid.tests.cockroachdb.operations.testCaseHolder", {
                 task: "{cockRoachTestOps}.updateFields",
                 args: ["users", "{cockRoachTestOps}.userChanges"],
                 resolve: "fluid.tests.cockroachdb.operations.testUpdateFields",
-                resolveArgs: ["{arguments}.0", "{cockRoachTestOps}", true]
+                resolveArgs: ["{arguments}.0", true, 1]
             }, {
-                // Update a field with no identifier -- should fail/reject
+                // Update a field with no identifier; should fail/reject
                 task: "{cockRoachTestOps}.updateFields",
                 args: ["users", "{cockRoachTestOps}.missingIdentifier"],
                 reject: "fluid.tests.cockroachdb.operations.testUpdateFields",
-                rejectArgs: ["{arguments}.0", "{cockRoachTestOps}", false]
+                rejectArgs: ["{arguments}.0", false, 0]
             }, {
+                // Update with non-existent table; should return "no results"
+                task: "{cockRoachTestOps}.updateFields",
+                args: ["noSuchUser", "{cockRoachTestOps}.missingIdentifier"],
+                resolve: "fluid.tests.cockroachdb.operations.testUpdateFields",
+                resolveArgs: ["{arguments}.0", true, 0]
+            }, {
+                // Test successful deletion
                 task: "{cockRoachTestOps}.deleteRecord",
                 args: ["roster.preferenceset", { "name": "default" }],
                 resolve: "fluid.tests.cockroachdb.operations.testDeleteRecord",
-                resolveArgs: ["{arguments}.0"]
-            }/*, {
-                task: "{cockRoachTestOps}.selectRows",
-                args: ["users", { id: "another.user:nonadmin" }],
-                resolve: "fluid.tests.cockroachdb.operations.testSelectValue",
-                resolveArgs: ["{arguments}.0", "{cockRoachTestOps}", "user"]
-            }*/]
+                resolveArgs: ["{arguments}.0", 1]
+                              // number deleted, should be 1.
+            }, {
+                // Test failure to delete anything
+                task: "{cockRoachTestOps}.deleteRecord",
+                args: ["noSuchTable", { "name": "default" }],
+                resolve: "fluid.tests.cockroachdb.operations.testDeleteRecord",
+                resolveArgs: ["{arguments}.0", 0]
+                              // number deleted, should be 0 (zero).
+            }]
         }]
     }]
 })
@@ -213,7 +233,7 @@ fluid.tests.cockroachdb.operations.testInit = function (cockRoachTestOps) {
 
 fluid.tests.cockroachdb.operations.testCreateOneTable = function (result, tables) {
     jqUnit.assertNotNull("Check for null create table result", result);
-    jqUnit.assertDeepEq("Check result was stored", tables[result.name], result);
+    jqUnit.assertDeepEq("Check result was stored", tables[result.getTableName()], result);
 };
 
 fluid.tests.cockroachdb.operations.testCreateTables = function (result, tables) {
@@ -230,7 +250,7 @@ fluid.tests.cockroachdb.operations.testLoadOneTable = function (result, tableDat
         var fields = tableData[index];
         var fieldKeys = fluid.keys(fields);
         fluid.tests.cockroachdb.operations.checkKeyValuePairs(
-            fieldKeys, aResult.dataValues, fields,
+            fieldKeys, aResult.get({plain: true}), fields,
             "Check column value matches given data"
         );
     })
@@ -248,26 +268,30 @@ fluid.tests.cockroachdb.operations.testLoadTables = function (result, tableData)
     });
 };
 
-fluid.tests.cockroachdb.operations.testSelectRows = function (results, tableData) {
-    jqUnit.assertNotEquals("Check for empty result", results.length, 0);
-    fluid.each(results, function (actual) {
-        fluid.each(tableData, function (expected) {
-            if (expected.id === actual.dataValues.id) {
-                var expectedFields = fluid.keys(expected);
-                fluid.tests.cockroachdb.operations.checkKeyValuePairs(
-                    expectedFields, actual.dataValues, expected,
-                    "Check row values"
-                );
-            }
+fluid.tests.cockroachdb.operations.testSelectRows = function (results, expected) {
+    if (expected.length === 0) {
+        jqUnit.assertEquals("Check zero rows returned", results.length, 0);
+    } else {
+        fluid.each(results, function (actual) {
+            var actualRecord = actual.get({plain: true});
+            fluid.each(expected, function (expectedRecord) {
+                if (expectedRecord.id === actualRecord.id) {
+                    var expectedFields = fluid.keys(expectedRecord);
+                    fluid.tests.cockroachdb.operations.checkKeyValuePairs(
+                        expectedFields, actualRecord, expectedRecord,
+                        "Check row values"
+                    );
+                }
+            });
         });
-    });
+    }
 };
 
 fluid.tests.cockroachdb.operations.testSelectValue = function (results, expected, expectedKey) {
     jqUnit.assertNotEquals("Check for empty result", results.length, 0);
     jqUnit.assertDeepEq(
-        "Check value retreived",
-        results[0].get({plain: true})/*dataValues*/[expectedKey],
+        "Check value retrieved",
+        results[0].get({plain: true})[expectedKey],
         expected[expectedKey]
     );
 };
@@ -285,18 +309,20 @@ fluid.tests.cockroachdb.operations.testInsertRecord = function (results, expecte
     );
 };
 
-fluid.tests.cockroachdb.operations.testUpdateFields = function (results, cockRoachTestOps, shouldSucceed) {
-    jqUnit.assertNotEquals("Check for empty results", results.length, 0);
+fluid.tests.cockroachdb.operations.testUpdateFields = function (results, shouldSucceed, expectedNumRows) {
     if (shouldSucceed) {
-        jqUnit.assertEquals("Check sucess (one record changed)", results[0], 1);
+        jqUnit.assertEquals("Check sucess (one record changed)", results[0], expectedNumRows);
     } else {
         jqUnit.assertEquals("Check error message", results, "Missing primary key");
     }
 };
 
-fluid.tests.cockroachdb.operations.testDeleteRecord = function (results) {
-    jqUnit.assertNotEquals("Check for empty results", results.length, 0);
-    jqUnit.assertNotEquals("Check that one record was deleted", results[0], 1);
+fluid.tests.cockroachdb.operations.testDeleteRecord = function (actualNumDeleted, expectedNumDeleted) {
+    jqUnit.assertEquals(
+        "Check number of records deleted",
+        actualNumDeleted,
+        expectedNumDeleted
+    );
 };
 
 fluid.test.runTests("fluid.tests.cockroachdb.operations.environment");

@@ -10,8 +10,6 @@
 var fluid = require("infusion"),
     Sequelize = require("sequelize-cockroachdb");  // for SQL data types
 
-fluid.setLogging(true);     // TODO: remove (for debugging)
-
 fluid.registerNamespace("fluid.test.cockroachdb");
 
 fluid.defaults("fluid.cockroachdb.request", {
@@ -129,7 +127,7 @@ fluid.defaults("fluid.cockroachdb.operations", {
  * @param {Object} that - Operations component instance.
  * @param {Object} that.request - An instance of fluid.cockroachdb.request
  * @param {Object} that.tables - List of references the created tables.
- * @param {Object} tableDefs - A list of table defintions.  TODO: document this.
+ * @param {Object} tableDefs - A list of table definitions.
  * @return {Promise} Final Promise of the sequence that created the tables.
  */
 fluid.cockroachdb.operations.createTables = function (that, tableDefs) {
@@ -248,7 +246,7 @@ fluid.cockroachdb.operations.deleteTableData = function (that, tableName, hardDe
  * @param {Object} that.tables - The known tables.
  * @param {Object} tableName - The table whose contents are to be deleted.
  * @param {Object} rowInfo - Object containing a columnName/value pair.
- * @return {Promise} Promise whose value is an array of instances (can be empty).
+ * @return {Promise} Promise whose value is an array of rows (can be empty).
  */
 fluid.cockroachdb.operations.selectRows = function (that, tableName, rowInfo) {
     var model = that.tables[tableName];
@@ -267,10 +265,10 @@ fluid.cockroachdb.operations.selectRows = function (that, tableName, rowInfo) {
  * @param {Object} that - Operations component instance.
  * @param {Object} that.tables - The known tables.
  * @param {Object} tableName - The table whose contents are to be deleted.
- * @param {Object} valueSpec - Specification of what to retrieve:
- * @param {Array} constraints.attributes - Array of column names; can be empty.
+ * @param {Object} constraints - Specification of what to retrieve:
+ * @param {Array}  constraints.attributes - Array of column names; can be empty.
  * @param {Object} constraints.where - Restrictions on row; can be empty.
- * @return {Promise} Promise whose value is an array of instances (can be empty).
+ * @return {Promise} Promise whose value is an array of records (can be empty).
  */
 fluid.cockroachdb.operations.retrieveValue = function (that, tableName, constraints) {
     var model = that.tables[tableName];
@@ -298,8 +296,10 @@ fluid.cockroachdb.operations.insertRecord = function (that, tableName, record) {
 };
 
 /*
- * Delete the given identified record into the given table.  Examples of the
- * 'primaryKey' parameter:
+ * Delete the given identified record into the given table.
+ * DELETE FROM <tableName> WHERE <primaryKey.keyName>=<primaryKey.value>
+ *
+ * Examples of the 'primaryKey' parameter:
  * - { "id": "F553B211-5BCD-41EA-9911-50646AE19D74"}
  * - { "name": "default"}
  * 
@@ -309,15 +309,17 @@ fluid.cockroachdb.operations.insertRecord = function (that, tableName, record) {
  * @param {Object} primaryKey - Identifier for the record to delete:
  * @param {Object} primaryKey.keyName - Primary key name.
  * @param {Object} primaryKey.value - Value of the primary key.
- * @return {Promise} Promise whose value is ???
+ * @return {Promise} Promise the value is the number of rows deleted, either
+ *                   zero or one.
  */
 fluid.cockroachdb.operations.deleteRecord = function (that, tableName, primaryKey) {
     var model = that.tables[tableName];
     if (model) {
         return model.destroy({ where: primaryKey });
     } else {
-        return fluid.promise().resolve([]);
+        return fluid.promise().resolve(0);
     }
+    // DELETE FROM <tableName> WHERE <primaryKey.keyName>=<primaryKey.value>
 };
 
 /*
@@ -327,7 +329,7 @@ fluid.cockroachdb.operations.deleteRecord = function (that, tableName, primaryKe
  * @param {Object} that - Operations component instance.
  * @param {Object} that.tables - The known tables.
  * @param {Object} tableName - The table whose contents are to be deleted.
- * @param {Object} fieldData - Data to be inserted, and constraints:
+ * @param {Object} fieldData - Data to be inserted, with constraints:
  * @param {Object} fieldData.attributes - Hash of name/value pairs, to be
  *                                        inserted.
  * @param {Object} fieldData.where - Constraints on the insertion.  It must
@@ -344,6 +346,6 @@ fluid.cockroachdb.operations.updateFields = function (that, tableName, fieldData
             return model.update(fieldData.attributes, { where: fieldData.where });
         }
     } else {
-        return fluid.promise.resolve([]);
+        return fluid.promise().resolve([0]);
     }
 };

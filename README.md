@@ -33,8 +33,8 @@ can be run as follows:
 startDockerInsecureCluster.sh
 ```
 
-If you wish to change the Postgres TCP port, `COCKROACHDB_LISTEN_PORT`, execute
-the script as follows:
+If you wish to change, for example, the Postgres TCP port
+`COCKROACHDB_LISTEN_PORT`, execute the script as follows:
 
 ```console
 export COCKROACHDB_LISTEN_PORT=26258; startDockerInsecureCluster.sh
@@ -55,7 +55,7 @@ stopDockerInsecureCluster.sh
 The only environment variable that the shut down script relies on is the main
 container name, `COCKROACH_MAIN_CONTAINER`.
 
-Note that when the shut down script is run, all of the `cockroadh-data` files
+Note that when the shut down script is run, all of the `cockroach-data` files
 will be deleted, including the directory itself.  If you wish to keep this
 information, move the folder elsewhere before calling the shut down script.
 
